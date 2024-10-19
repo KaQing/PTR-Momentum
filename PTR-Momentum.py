@@ -1,14 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Aug 11 20:00:20 2024
-
-@author: fisch
-"""
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import mplfinance as mpf
 import yfinance as yf
 from datetime import datetime, timedelta
 import seaborn as sns
@@ -110,7 +102,7 @@ for index, row in df.iterrows():
 
 
 # PTR CODE
-
+# Inserts the current close as last row in the zigzag_df if insert_today = True
 if insert_today == True: 
     last_row_in_df = df.iloc[-1]
     current_close = last_row_in_df['Adj Close']
@@ -122,10 +114,9 @@ if insert_today == True:
     # Append new_row to zigzag_df
     zigzag_df = pd.concat([zigzag_df, new_row_for_zz], ignore_index=True)
 
-# Create a separate 'dates' column before setting 'date' as index
+# Create a separate 'dates' column before setting 'date' as index to calculate datetime differences
 zigzag_df["date"] = pd.to_datetime(zigzag_df["date"])
 zigzag_df["dates"] = zigzag_df["date"]  # Separate 'dates' column
-
 
 # Set 'date' as index
 zigzag_df = zigzag_df.set_index("date")
@@ -135,44 +126,33 @@ zigzag_df['time_diff'] = zigzag_df["dates"].diff()
 zigzag_df["time_diff"] = zigzag_df["time_diff"].dt.total_seconds()
 zigzag_df["price_diff"] = zigzag_df["close"].diff()
 zigzag_df["price_time_ratio"] = zigzag_df["price_diff"] / zigzag_df['time_diff']
-
 zigzag_df["price_time_ratio"] = zigzag_df["price_time_ratio"].ffill()
 zigzag_df["price_time_ratio"] = gaussian_filter1d(zigzag_df['price_time_ratio'], sigma=gaussian_smoother)
 
-
-
-# Normalize ptr values to a range between 0 and 1
+# Normalize ptr values to a range between 0 and 1 for the background colors on the first plot
 norm = mcolors.Normalize(vmin=zigzag_df['price_time_ratio'].min(), vmax=zigzag_df['price_time_ratio'].max())
 # Create a colormap that transitions from red to green (RdYlGn)
 cmap = plt.cm.RdYlGn
 
-
 # Create a figure and a set of subplots
 fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True)  # 2 rows, 1 column
 
-# First subplot: Matplotlib line plot for 'Adj Close'
+# First subplot: Matplotlib line plot for 'Adj Close' with Value of PTR momentum as background positive green, negativ in red
 # Adding vertical lines for each day based on ptr values
 for i, row in zigzag_df.iterrows():
     # Get the color based on ptr value
     color = cmap(norm(row['price_time_ratio']))
     # Plot a vertical line on the given date
     axs[0].axvline(row.name, color=color, linewidth=5, alpha=0.05)
+# Plot Adj Close in front of the background colors
 axs[0].plot(df.index, df["Adj Close"], label='Adj Close', color='black')
-
-for i, row in zigzag_df.iterrows():
-    # Get the color based on ptr value
-    if 1e-11 < row['price_time_ratio'] < 1e-13:
-        # Add a black vertical line on axs[0] at the row's date or corresponding x-axis value
-        axs[0].axvline(row.name,color = "black")
-
 # Customize the first subplot
 axs[0].set_title(f'Adjusted Close with PTR-Momentum Background Color ({ticker})')
-axs[0].set_xlabel('Date')
 axs[0].set_ylabel('Adjusted Close')
 axs[0].legend()
 axs[0].grid(True)
 
-# Second subplot: Seaborn line plot for 'wegr'
+# Second subplot: Seaborn line plot
 sns.lineplot(x=zigzag_df.index, y=zigzag_df["price_time_ratio"], ax=axs[1], label='PTR', color='blue')
 axs[1].set_title('Line Plot of PTR-Momentum Indicator')
 axs[1].set_xlabel('Date')
